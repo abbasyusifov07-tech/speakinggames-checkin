@@ -1,0 +1,200 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>SpeakingGames Check-in</title>
+
+  <script src="https://unpkg.com/html5-qrcode"></script>
+
+  <style>
+    body{
+      font-family:Arial,sans-serif;
+      background:#f4f5f7;
+      margin:0;
+      padding:20px;
+    }
+
+    .box{
+      max-width:520px;
+      margin:auto;
+      background:#fff;
+      padding:20px;
+      border-radius:18px;
+    }
+
+    h1{
+      margin-top:0;
+    }
+
+    input{
+      width:100%;
+      box-sizing:border-box;
+      padding:12px;
+      font-size:16px;
+      margin-bottom:12px;
+    }
+
+    #reader{
+      margin-top:15px;
+    }
+
+    #result{
+      margin-top:15px;
+      padding:15px;
+      border-radius:12px;
+      display:none;
+      white-space:pre-line;
+    }
+
+    .success{
+      background:#dff5e5;
+    }
+
+    .error{
+      background:#ffdede;
+    }
+
+    .warning{
+      background:#fff2c7;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="box">
+
+  <h1>SpeakingGames Check-in</h1>
+
+  <input
+    id="host"
+    placeholder="Host name"
+    value="Rizal"
+  >
+
+  <div id="reader"></div>
+
+  <div id="result"></div>
+
+</div>
+
+<script>
+
+const API_URL =
+"https://script.google.com/macros/s/AKfycbwhoPcaTTaoyP_z5a7tmvHHUNA4UOu3SNbRDnbECPB0OdY7Q71b1yEFVSUvzD9IjjZw/exec";
+
+let processing = false;
+
+function showResult(data){
+
+  const box = document.getElementById("result");
+
+  box.style.display = "block";
+
+  if(data.ok){
+    box.className = "success";
+  }
+  else if(data.type === "duplicate"){
+    box.className = "warning";
+  }
+  else{
+    box.className = "error";
+  }
+
+  let text = data.message || "";
+
+  if(data.ticket){
+
+    text +=
+    "\n\nName: " + data.ticket.name +
+    "\nTicket: " + data.ticket.ticketId +
+    "\nEvent: " + data.ticket.event;
+
+    if(data.ticket.checkinTime){
+      text +=
+      "\nTime: " + data.ticket.checkinTime;
+    }
+
+  }
+
+  box.innerText = text;
+
+}
+
+async function sendCheckin(ticketId){
+
+  if(processing) return;
+
+  processing = true;
+
+  try{
+
+    const response = await fetch(API_URL,{
+      method:"POST",
+      headers:{
+        "Content-Type":"text/plain;charset=utf-8"
+      },
+      body:JSON.stringify({
+        ticketId:ticketId,
+        hostName:document.getElementById("host").value
+      })
+    });
+
+    const data = await response.json();
+
+    showResult(data);
+
+  }
+  catch(error){
+
+    showResult({
+      ok:false,
+      message:"Connection error: " + error.message
+    });
+
+  }
+
+  setTimeout(()=>{
+    processing=false;
+  },2000);
+
+}
+
+function onScanSuccess(decodedText){
+
+  let ticketId = decodedText.trim();
+
+  try{
+
+    const url = new URL(decodedText);
+
+    const id = url.searchParams.get("id");
+
+    if(id){
+      ticketId = id;
+    }
+
+  }
+  catch(e){}
+
+  sendCheckin(ticketId);
+
+}
+
+const scanner =
+new Html5QrcodeScanner(
+  "reader",
+  {
+    fps:10,
+    qrbox:250
+  },
+  false
+);
+
+scanner.render(onScanSuccess);
+
+</script>
+
+</body>
+</html>
